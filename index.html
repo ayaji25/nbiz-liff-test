@@ -3,66 +3,56 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>N-biz LIFF Test</title>
+  <title>N-biz LIFF Test (force login)</title>
   <style>
     body { font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; padding: 24px; }
     button { padding: 14px 18px; border-radius: 12px; border: 1px solid #ccc; cursor: pointer; }
     #log { margin-top: 16px; line-height: 1.6; white-space: pre-wrap; }
-    .ok { color: #0a0; }
-    .err { color: #a00; }
   </style>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
   <h1>N-biz LIFF テスト</h1>
-  <p>下のボタンを押すと、<b>「ほげほげ面談希望」</b> をあなた → 公式アカウントに送ります。</p>
-
   <button id="sendBtn">面談を希望する（テスト）</button>
   <div id="log"></div>
 
   <script>
     const LIFF_ID = "2007008877-RekeNxWY";
 
-    async function main() {
+    async function init() {
       const log = (msg) => {
-        document.getElementById("log").innerHTML += msg + "\n";
+        document.getElementById("log").textContent += msg + "\n";
       };
 
       try {
-        log("▶ init...");
         await liff.init({ liffId: LIFF_ID });
-        log("init ok");
+        log("init OK");
 
-        // ログイン状態チェック
-        if (liff.isLoggedIn()) {
-          log("already logged in → logout");
-          try { liff.logout(); } catch(e) {}
+        // ★ 常にログアウトしてログインをやり直す
+        try { liff.logout(); } catch(e) {}
+        if (!liff.isLoggedIn()) {
+          log("→ force login with scopes");
+          liff.login({ scope: ["chat_message.write","openid","profile"] });
+          return;
         }
 
-        // 必ず scope を指定してログイン
-        log("redirect to login with scopes...");
-        liff.login({ scope: ["chat_message.write","openid","profile"] });
-        return; // ここで処理終了、再読み込みされる
+        // ログイン済みならボタン動作を有効化
+        document.getElementById("sendBtn").addEventListener("click", async () => {
+          log("sending...");
+          try {
+            await liff.sendMessages([{ type: "text", text: "ほげほげ面談希望" }]);
+            log("✅ sent ok");
+          } catch (e) {
+            log("❌ send error: " + String(e));
+          }
+        });
 
       } catch (e) {
         log("❌ init error: " + String(e));
       }
-
-      // （再ログイン後に実行される部分）
-      document.getElementById("sendBtn").addEventListener("click", async () => {
-        log("sending...");
-        try {
-          await liff.sendMessages([
-            { type: "text", text: "ほげほげ面談希望" }
-          ]);
-          log("✅ sent ok");
-        } catch (e) {
-          log("❌ send error: " + String(e));
-        }
-      });
     }
 
-    main();
+    init();
   </script>
 </body>
 </html>
