@@ -3,47 +3,70 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>N-biz LIFF Test (force login)</title>
+  <title>N-biz LIFF Test</title>
   <style>
     body { font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; padding: 24px; }
-    button { padding: 14px 18px; border-radius: 12px; border: 1px solid #ccc; cursor: pointer; }
+    button, a.btn { padding: 14px 18px; border-radius: 12px; border: 1px solid #ccc; cursor: pointer; display: inline-block; text-decoration: none; }
     #log { margin-top: 16px; line-height: 1.6; white-space: pre-wrap; }
+    .muted { color:#666 }
   </style>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
   <h1>N-biz LIFF テスト</h1>
-  <button id="sendBtn">面談を希望する（テスト）</button>
+
+  <p class="muted">※ この機能（sendMessages）は <b>LINEアプリ内</b>でのみ動作します。</p>
+
+  <div id="controls">
+    <button id="sendBtn" disabled>面談を希望する（テスト）</button>
+    <a id="openInLine" class="btn" href="#" style="margin-left:8px; display:none;">LINEで開く</a>
+  </div>
+
   <div id="log"></div>
 
   <script>
     const LIFF_ID = "2007008877-RekeNxWY";
+    const NEED_SCOPES = ["chat_message.write","openid","profile"];
+    const log = (m)=>{ document.getElementById("log").textContent += m + "\n"; };
 
     async function init() {
-      const log = (msg) => {
-        document.getElementById("log").textContent += msg + "\n";
-      };
-
       try {
+        log("init…");
         await liff.init({ liffId: LIFF_ID });
-        log("init OK");
+        log("inClient: " + liff.isInClient());
+        log("isLoggedIn: " + liff.isLoggedIn());
 
-        // ★ 常にログアウトしてログインをやり直す
-        try { liff.logout(); } catch(e) {}
+        // 外部ブラウザなら「LINEで開く」導線を出して送信ボタンは無効のまま
+        if (!liff.isInClient()) {
+          const a = document.getElementById("openInLine");
+          a.href = "https://liff.line.me/" + LIFF_ID; // ← これで必ずLINEアプリ内で開ける
+          a.style.display = "inline-block";
+          log("外部ブラウザのため送信は不可。『LINEで開く』から再度開いてください。");
+        }
+
+        // 未ログインならスコープ付きでログイン（ループ防止のため logout はしない）
         if (!liff.isLoggedIn()) {
-          log("→ force login with scopes");
-          liff.login({ scope: ["chat_message.write","openid","profile"] });
+          log("login with scopes…");
+          liff.login({ scope: NEED_SCOPES });
           return;
         }
 
-        // ログイン済みならボタン動作を有効化
+        // ここまで来たら、LINEアプリ内なら送信ボタンを有効化
+        if (liff.isInClient()) {
+          document.getElementById("sendBtn").disabled = false;
+        }
+
+        // 送信
         document.getElementById("sendBtn").addEventListener("click", async () => {
-          log("sending...");
+          log("sending…");
           try {
             await liff.sendMessages([{ type: "text", text: "ほげほげ面談希望" }]);
             log("✅ sent ok");
           } catch (e) {
             log("❌ send error: " + String(e));
+            if (!liff.isInClient()) {
+              log("※ LINEアプリ内で開く必要があります。『LINEで開く』を押してください。");
+            }
           }
         });
 
@@ -51,7 +74,6 @@
         log("❌ init error: " + String(e));
       }
     }
-
     init();
   </script>
 </body>
