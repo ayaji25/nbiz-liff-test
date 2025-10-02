@@ -3,65 +3,43 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>N-biz LIFF Test（企業名連携）</title>
+  <title>N-biz LIFF Test（企業名反映）</title>
   <style>
     body { font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; padding: 24px; }
-    button, a.btn { padding: 12px 16px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer; display:inline-block; text-decoration:none; }
+    button { padding: 12px 16px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer; }
     #log { margin-top: 14px; line-height: 1.6; white-space: pre-wrap; }
-    .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin: 8px 0; }
-    .muted { color:#666 }
   </style>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
-  <h1>N-biz LIFF テスト（企業名連携）</h1>
-  <p class="muted">※ 送信は <b>LINEアプリ内</b>のみ可。</p>
+  <h1>N-biz LIFF テスト（企業名反映）</h1>
 
-  <div id="companyBox" style="margin:8px 0 16px;"></div>
+  <div id="companyBox"></div>
 
-  <div class="row">
-    <button id="sendBtn" disabled>面談を希望する（テスト）</button>
-    <button id="consentBtn" style="display:none;">権限を付与（再ログイン）</button>
-    <a id="openInLine" class="btn" href="#" style="display:none;">LINEで開く</a>
-  </div>
-
+  <button id="sendBtn" disabled>面談を希望する</button>
   <div id="log"></div>
 
   <script>
     const LIFF_ID = "2007008877-RekeNxWY";
-    const NEED_SCOPES = ["chat_message.write","openid","profile"];
     const qs = new URLSearchParams(location.search);
-    // name= の値を取得（未指定時は「不明な企業」）
     const companyName = qs.get("name") ? decodeURIComponent(qs.get("name")) : "不明な企業";
 
-    const log = (m)=>{ document.getElementById("log").textContent += m + "\n"; };
-
-    // 企業名を画面に表示
     document.getElementById("companyBox").innerHTML = `
-      <div><b>対象企業：</b>${companyName}</div>
-      <div>この企業に対して「面談希望します」のメッセージを送ります。</div>
+      <b>対象企業：</b> ${companyName}
     `;
+
+    const log = (m)=>{ document.getElementById("log").textContent += m + "\n"; };
 
     async function init() {
       try {
         await liff.init({ liffId: LIFF_ID });
-        const inClient = liff.isInClient();
-        const loggedIn = liff.isLoggedIn();
-        log("inClient: " + inClient);
-        log("isLoggedIn: " + loggedIn);
-
-        if (!inClient) {
-          const a = document.getElementById("openInLine");
-          a.href = "https://liff.line.me/" + LIFF_ID + location.search; // クエリを維持
-          a.style.display = "inline-block";
-          log("外部ブラウザのため送信不可。『LINEで開く』から再度開いてください。");
+        log("init ok, inClient: " + liff.isInClient());
+        if (!liff.isLoggedIn()) {
+          liff.login({ scope:["chat_message.write","openid","profile"], redirectUri: location.href });
           return;
         }
-
-        if (loggedIn) {
+        if (liff.isInClient()) {
           document.getElementById("sendBtn").disabled = false;
-        } else {
-          document.getElementById("consentBtn").style.display = "inline-block";
         }
 
         document.getElementById("sendBtn").addEventListener("click", async () => {
@@ -72,15 +50,7 @@
             log("✅ sent ok");
           } catch (e) {
             log("❌ send error: " + String(e));
-            if (String(e).includes("permissions") || String(e).includes("grant")) {
-              document.getElementById("consentBtn").style.display = "inline-block";
-              log("※ 権限が不足しています。『権限を付与』を押して再同意してください。");
-            }
           }
-        });
-
-        document.getElementById("consentBtn").addEventListener("click", () => {
-          liff.login({ scope: NEED_SCOPES, redirectUri: location.href });
         });
 
       } catch (e) {
