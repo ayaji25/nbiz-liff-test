@@ -4,9 +4,44 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>N-biz LIFF Test</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; padding: 24px; }
+    button { padding: 14px 18px; border-radius: 12px; border: 1px solid #ccc; cursor: pointer; }
+    .ok { color: #0a0; margin-top: 12px; }
+    .err { color: #a00; margin-top: 12px; white-space: pre-wrap; }
+  </style>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
-  <h1>N-biz LIFF テストページ</h1>
-  <button>面談を希望する（仮ボタン）</button>
+  <h1>N-biz LIFF テスト</h1>
+  <p>下のボタンを押すと、<b>「ほげほげ面談希望」</b>をあなた→公式アカウントに送ります。</p>
+
+  <button id="sendBtn">面談を希望する（テスト）</button>
+  <div id="status"></div>
+
+  <script>
+    const LIFF_ID = "2007008877-RekeNxWY"; // いただいたLIFF ID
+
+    async function init() {
+      const status = document.getElementById('status');
+      try {
+        await liff.init({ liffId: LIFF_ID });
+        if (!liff.isLoggedIn()) { liff.login(); return; }
+
+        document.getElementById('sendBtn').addEventListener('click', async () => {
+          status.textContent = "送信中…";
+          try {
+            await liff.sendMessages([{ type: "text", text: "ほげほげ面談希望" }]);
+            status.innerHTML = '<span class="ok">送信しました ✅</span>';
+          } catch (e) {
+            status.innerHTML = '<span class="err">送信エラー：' + String(e) + '</span>';
+          }
+        });
+      } catch (e) {
+        status.innerHTML = '<span class="err">LIFF初期化エラー：' + String(e) + '</span>';
+      }
+    }
+    init();
+  </script>
 </body>
 </html>
