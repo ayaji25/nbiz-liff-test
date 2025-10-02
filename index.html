@@ -1,40 +1,71 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>N-biz LIFF Test (debug)</title>
+<style>
+  body{font-family:system-ui,-apple-system,"Hiragino Kaku Gothic ProN",sans-serif;padding:24px}
+  button{padding:12px 16px;border:1px solid #ccc;border-radius:10px;cursor:pointer}
+  #log{margin-top:14px;line-height:1.6;white-space:pre-wrap}
+  .ok{color:#0a0}.err{color:#a00}
+</style>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+  <h1>N-biz LIFF テスト（デバッグ）</h1>
+  <p>下のボタンで <b>「ほげほげ面談希望」</b> を送信します。</p>
+  <button id="sendBtn">面談を希望する（テスト）</button>
+  <div id="log"></div>
+
 <script>
-  const LIFF_ID = "2007008877-RekeNxWY";
+const LIFF_ID = "2007008877-RekeNxWY";
+const needScopes = ["chat_message.write","openid","profile"];
+const log = (...m)=>{document.getElementById("log").textContent += m.join(" ") + "\n";};
 
-  async function ensureScopes() {
-    const scopes = await liff.getGrantedScopes();
-    const need = ["chat_message.write","openid","profile"];
-    const missing = need.some(s => !scopes.includes(s));
-    if (missing) {
-      try { liff.logout(); } catch(e) {}
-      liff.login({ scope: need });
-      return false; // ここで遷移するので以降は実行されない
+(async function main(){
+  try{
+    log("start init…");
+    await liff.init({ liffId: LIFF_ID });
+    log("inClient:", liff.isInClient());
+    log("isLoggedIn:", liff.isLoggedIn());
+
+    if(!liff.isLoggedIn()){
+      log("login needed → redirect");
+      liff.login({ scope: needScopes });
+      return;
     }
-    return true;
+
+    // 付与済みスコープの可視化
+    try{
+      const granted = await liff.getGrantedScopes();
+      log("granted scopes:", JSON.stringify(granted));
+      const missing = needScopes.filter(s=>!granted.includes(s));
+      log("missing scopes:", JSON.stringify(missing));
+      if(missing.length){
+        log("force re-login for scopes");
+        try{ liff.logout(); }catch(e){}
+        liff.login({ scope: needScopes });
+        return;
+      }
+    }catch(e){ log("getGrantedScopes error:", String(e)); }
+
+    // ボタン動作
+    document.getElementById("sendBtn").onclick = async ()=>{
+      log("sending…");
+      try{
+        await liff.sendMessages([{ type:"text", text:"ほげほげ面談希望" }]);
+        log("✅ sent ok");
+      }catch(e){
+        log("❌ send error:", String(e));
+      }
+    };
+
+    log("ready. tap the button.");
+  }catch(e){
+    log("❌ init error:", String(e));
   }
-
-  async function init() {
-    const status = document.getElementById('status');
-    try {
-      await liff.init({ liffId: LIFF_ID });
-      if (!liff.isLoggedIn()) { liff.login({ scope:["chat_message.write","openid","profile"] }); return; }
-
-      // 権限チェック（未付与なら再ログインへ）
-      const ok = await ensureScopes();
-      if (!ok) return;
-
-      document.getElementById('sendBtn').addEventListener('click', async () => {
-        status.textContent = "送信中…";
-        try {
-          await liff.sendMessages([{ type: "text", text: "ほげほげ面談希望" }]);
-          status.innerHTML = '<span class="ok">送信しました ✅</span>';
-        } catch (e) {
-          status.innerHTML = '<span class="err">送信エラー：' + String(e) + '</span>';
-        }
-      });
-    } catch (e) {
-      status.innerHTML = '<span class="err">LIFF初期化エラー：' + String(e) + '</span>';
-    }
-  }
-  init();
+})();
 </script>
+</body>
+</html>
