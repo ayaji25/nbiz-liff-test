@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>N-biz LIFF Test (no-loop)</title>
+  <title>N-biz LIFF Test（企業名連携）</title>
   <style>
     body { font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; padding: 24px; }
     button, a.btn { padding: 12px 16px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer; display:inline-block; text-decoration:none; }
@@ -14,8 +14,10 @@
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
-  <h1>N-biz LIFF テスト（ループ対策版）</h1>
-  <p class="muted">※ 送信は <b>LINEアプリ内</b>のみ可。外部ブラウザでは不可。</p>
+  <h1>N-biz LIFF テスト（企業名連携）</h1>
+  <p class="muted">※ 送信は <b>LINEアプリ内</b>のみ可。</p>
+
+  <div id="companyBox" style="margin:8px 0 16px;"></div>
 
   <div class="row">
     <button id="sendBtn" disabled>面談を希望する（テスト）</button>
@@ -28,51 +30,55 @@
   <script>
     const LIFF_ID = "2007008877-RekeNxWY";
     const NEED_SCOPES = ["chat_message.write","openid","profile"];
+    const qs = new URLSearchParams(location.search);
+    // name= の値を取得（未指定時は「不明な企業」）
+    const companyName = qs.get("name") ? decodeURIComponent(qs.get("name")) : "不明な企業";
+
     const log = (m)=>{ document.getElementById("log").textContent += m + "\n"; };
+
+    // 企業名を画面に表示
+    document.getElementById("companyBox").innerHTML = `
+      <div><b>対象企業：</b>${companyName}</div>
+      <div>この企業に対して「面談希望します」のメッセージを送ります。</div>
+    `;
 
     async function init() {
       try {
-        log("init…");
         await liff.init({ liffId: LIFF_ID });
         const inClient = liff.isInClient();
         const loggedIn = liff.isLoggedIn();
         log("inClient: " + inClient);
         log("isLoggedIn: " + loggedIn);
 
-        // 外部ブラウザなら LINEで開く 導線だけ出して終了
         if (!inClient) {
           const a = document.getElementById("openInLine");
-          a.href = "https://liff.line.me/" + LIFF_ID;
+          a.href = "https://liff.line.me/" + LIFF_ID + location.search; // クエリを維持
           a.style.display = "inline-block";
           log("外部ブラウザのため送信不可。『LINEで開く』から再度開いてください。");
           return;
         }
 
-        // LINEアプリ内。ログイン済みであれば送信ボタンを有効化
         if (loggedIn) {
           document.getElementById("sendBtn").disabled = false;
         } else {
-          // 未ログインなら「権限を付与」ボタンを表示（押した時だけログイン）
           document.getElementById("consentBtn").style.display = "inline-block";
         }
 
-        // 送信
         document.getElementById("sendBtn").addEventListener("click", async () => {
-          log("sending…");
+          const text = `${companyName}と面談希望します`;
+          log("sending… " + text);
           try {
-            await liff.sendMessages([{ type:"text", text:"ほげほげ面談希望" }]);
+            await liff.sendMessages([{ type:"text", text }]);
             log("✅ sent ok");
           } catch (e) {
             log("❌ send error: " + String(e));
-            // 権限不足のときに再同意ボタンを案内
             if (String(e).includes("permissions") || String(e).includes("grant")) {
-              log("※ 権限が不足しています。『権限を付与』ボタンを押して再同意してください。");
               document.getElementById("consentBtn").style.display = "inline-block";
+              log("※ 権限が不足しています。『権限を付与』を押して再同意してください。");
             }
           }
         });
 
-        // 手動で権限同意（再ログイン）。ループ防止のため logout はしない。
         document.getElementById("consentBtn").addEventListener("click", () => {
           liff.login({ scope: NEED_SCOPES, redirectUri: location.href });
         });
